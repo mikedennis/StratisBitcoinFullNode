@@ -93,5 +93,22 @@ namespace Stratis.Bitcoin.IntegrationTests.RPC
                 Assert.Throws<RPCException>(() => rpcClient.SendToAddress(aliceAddress, Money.Coins(1.0m)));
             }
         }
+
+        [Fact]
+        public void TestRpcGetTransactionIsSuccessful()
+        {
+            using (NodeBuilder builder = NodeBuilder.Create(this))
+            {
+                Network network = KnownNetworks.RegTest;
+                var node = builder.CreateStratisPowNode(network);
+                builder.StartAll();
+                RPCClient rpc = node.CreateRPCClient();
+                node.NotInIBD().WithWallet();       
+                var blockHash = rpc.Generate(1)[0];
+                var block = rpc.GetBlock(blockHash);
+                var walletTx = rpc.SendCommand(RPCOperations.gettransaction, block.Transactions[0].GetHash().ToString());
+                walletTx.ThrowIfError();
+            }
+        }
     }
 }

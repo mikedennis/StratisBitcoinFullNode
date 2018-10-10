@@ -1,10 +1,12 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Security;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using NBitcoin;
+using Newtonsoft.Json;
 using Stratis.Bitcoin.Controllers;
 using Stratis.Bitcoin.Features.RPC;
 using Stratis.Bitcoin.Features.RPC.Exceptions;
@@ -136,6 +138,98 @@ namespace Stratis.Bitcoin.Features.Wallet
             string base58Address = hdAddress.Address;
             
             return new NewAddressModel(base58Address);
+        }
+
+        /// <summary>
+        /// RPC method that returns the spendable balance of all accounts.
+        /// Uses the first wallet and account.
+        /// </summary>
+        /// <returns>Total spendable balance of the wallet.</returns>
+        [ActionName("getbalance")]
+        [ActionDescription("Gets wallets spendable balance.")]
+        public Money GetBalance()
+        {
+            var account = this.GetAccount();
+
+            IEnumerable<AccountBalance> balances = this.walletManager.GetBalances(account.WalletName, account.AccountName);
+            return balances?.Sum(i => i.AmountConfirmed);
+        }
+
+        public class GetTransactionDetailsModel
+        {
+            [JsonProperty("address")]
+            public string Address { get; set; }
+
+            [JsonProperty("category")]
+            public string Category { get; set; }
+
+            [JsonProperty("amount")]
+            public Money Amount { get; set; }            
+        }
+
+        public class GetTransactionModel
+        {
+            [JsonProperty("amount")]
+            public Money Amount { get; set; }
+
+            [JsonProperty("blockhash")]
+            public uint256 BlockHash { get; set; }
+
+            [JsonProperty("txid")]
+            public uint256 TransactionId { get; set; }
+
+            [JsonProperty("time")]
+            public long? TransactionTime { get; set; }
+
+            [JsonProperty("details")]
+            public List<GetTransactionDetailsModel> Details {get; set;}
+
+            [JsonProperty("hex")]
+            public string Hex { get; set; }
+        }
+
+        [ActionName("gettransaction")]
+        [ActionDescription("Gets a transaction from the wallet.")]
+        public GetTransactionModel GetTransaction(string txid)
+        {
+            uint256 trxid;
+            if (!uint256.TryParse(txid, out trxid))
+                throw new ArgumentException(nameof(txid));
+
+            var accountReference = this.GetAccount();
+            var account = this.walletManager.GetAccounts(accountReference.WalletName)
+                                            .Where(i => i.Name.Equals(accountReference.AccountName))
+                                            .Single();
+
+            var transaction = account.GetTransactionsById(trxid).Single();
+
+            if (transaction == null)
+                return null;
+
+            var model = new GetTransactionModel
+            {
+                Amount = transaction.Amount,
+                BlockHash = transaction.BlockHash,
+                TransactionId = transaction.Id,
+                TransactionTime = transaction.CreationTime.ToUnixTimeSeconds(),
+                Details = new List<GetTransactionDetailsModel>(),
+                Hex = transaction.Hex                
+            };
+
+            if (transaction.SpendingDetails?.Payments != null)
+            {
+                foreach (var paymentDetail in transaction.SpendingDetails.Payments)
+                {
+                    model.Details.Add(new GetTransactionDetailsModel
+                    {
+                        Address = paymentDetail.DestinationAddress,
+                        Category = "send",
+                        Amount = paymentDetail.Amount
+                    });
+                }
+            }
+
+            return model;
         }
 
         private WalletAccountReference GetAccount()
