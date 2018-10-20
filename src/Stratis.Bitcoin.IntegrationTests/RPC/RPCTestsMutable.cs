@@ -15,6 +15,29 @@ namespace Stratis.Bitcoin.IntegrationTests.RPC
     public class RPCTestsMutable
     {
         [Fact]
+        public void TestRpcGetBalanceIsSuccessful()
+        {
+            using (NodeBuilder builder = NodeBuilder.Create(this))
+            {
+                var node = builder.CreateStratisPowNode(KnownNetworks.RegTest).NotInIBD();                
+                builder.StartAll();
+                node.WithWallet();
+                RPCClient rpcClient = node.CreateRPCClient();
+
+                int maturity = (int)KnownNetworks.RegTest.Consensus.CoinbaseMaturity;
+
+                // This shouldn't be necessary but is required to make this test pass.
+                // - looks like a bug in the wallet?
+                //maturity--;
+                rpcClient.Generate(maturity);  
+                Assert.Equal(Money.Zero, rpcClient.GetBalance());
+
+                rpcClient.Generate(1);
+                Assert.Equal(Money.Coins(50), rpcClient.GetBalance());
+            }
+        }
+
+        [Fact]
         public void TestRpcGetBlockWithValidHashIsSuccessful()
         {
             using (NodeBuilder builder = NodeBuilder.Create(this))
