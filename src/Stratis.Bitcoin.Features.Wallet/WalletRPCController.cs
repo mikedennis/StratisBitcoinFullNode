@@ -147,11 +147,11 @@ namespace Stratis.Bitcoin.Features.Wallet
         /// <returns>Total spendable balance of the wallet.</returns>
         [ActionName("getbalance")]
         [ActionDescription("Gets wallets spendable balance.")]
-        public decimal GetBalance(int? minConfirmations, bool? isWatchOnly)
+        public decimal GetBalance(string accountName, int minConfirmations=0)
         {
             var account = this.GetAccount();
 
-            Money balance = this.walletManager.GetSpendableTransactionsInAccount(account, minConfirmations ?? 1).Sum(x => x.Transaction.Amount);
+            Money balance = this.walletManager.GetSpendableTransactionsInAccount(account, minConfirmations).Sum(x => x.Transaction.Amount);
             return balance?.ToUnit(MoneyUnit.BTC) ?? 0;
         }
 
