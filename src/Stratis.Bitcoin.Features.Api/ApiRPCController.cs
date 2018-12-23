@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -22,15 +23,15 @@ namespace Stratis.Bitcoin.Features.Api
             this.apiSettings = apiSettings;
             this.logger = loggerFactory.CreateLogger(this.GetType().FullName);
         }
- 
+
         /// <summary>
         /// Forward API request from RPC to API.
         /// </summary>
         /// <param name="verb">GET, POST, PUT</param>
         /// <param name="command">Command endpoint.</param>
-        /// <param name="request">if get then get parameters (if any), if post/put then Json request</param>
-        /// <example>CallApiAsync("POST", "wallet/load", "{param:1, param:2}");</example>
-        /// <example>CallApiAsync("GET", "wallet/general-info", "&name=default"</example>
+        /// <param name="request">if get then get parameters (if any), if post/put then Json request encoded as base64</param>
+        /// <example>CallApiAsync("POST", "wallet/load", "e3BhcmFtOjEsIHBhcmFtOjJ9");</example>
+        /// <example>CallApiAsync("GET", "wallet/general-info", "?name=default&other=blah"</example>
         /// <returns>Json response.</returns>
         [ActionName("callapi")]
         [ActionDescription("Forwards request to swagger api for processing.")]
@@ -55,14 +56,16 @@ namespace Stratis.Bitcoin.Features.Api
                     }
                     else
                     {
+                        // Convert request from base64 to JSON to pass to Api.
+                        var requestJson = Encoding.UTF8.GetString(Convert.FromBase64String(request));
                         if (verb.Equals("POST", StringComparison.InvariantCultureIgnoreCase))
                         {
-                            HttpResponseMessage postResponse = await client.PostAsJsonAsync<string>(url, request);
+                            HttpResponseMessage postResponse = await client.PostAsJsonAsync<string>(url, requestJson);
                             response = postResponse.Content.ReadAsStringAsync().Result;
                         }
                         else if (verb.Equals("PUT", StringComparison.InvariantCultureIgnoreCase))
                         {
-                            HttpResponseMessage postResponse = await client.PutAsJsonAsync<string>(url, request);
+                            HttpResponseMessage postResponse = await client.PutAsJsonAsync<string>(url, requestJson);
                             response = postResponse.Content.ReadAsStringAsync().Result;
                         }
                     }
