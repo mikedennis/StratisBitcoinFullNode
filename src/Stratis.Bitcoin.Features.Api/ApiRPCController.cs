@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Stratis.Bitcoin.Controllers;
+using Stratis.Bitcoin.Features.RPC.Exceptions;
 
 namespace Stratis.Bitcoin.Features.Api
 {
@@ -21,7 +22,7 @@ namespace Stratis.Bitcoin.Features.Api
             this.apiSettings = apiSettings;
             this.logger = loggerFactory.CreateLogger(this.GetType().FullName);
         }
-
+ 
         /// <summary>
         /// Forward API request from RPC to API.
         /// </summary>
@@ -45,29 +46,32 @@ namespace Stratis.Bitcoin.Features.Api
 
                 var url = $"{this.apiSettings.ApiUri.AbsoluteUri}api/{command}";
 
-
-                if (verb?.Equals("GET", StringComparison.InvariantCultureIgnoreCase) ?? true)
+                try
                 {
-                    url += request;
-                    this.logger.LogInformation("Verb: {0} Url: {1} Request: {2}", verb, url, request);
-                    response = await client.GetStringAsync(url);
+                    if (verb?.Equals("GET", StringComparison.InvariantCultureIgnoreCase) ?? true)
+                    {
+                        url += request;
+                        response = await client.GetStringAsync(url);
+                    }
+                    else
+                    {
+                        if (verb.Equals("POST", StringComparison.InvariantCultureIgnoreCase))
+                        {
+                            HttpResponseMessage postResponse = await client.PostAsJsonAsync<string>(url, request);
+                            response = postResponse.Content.ReadAsStringAsync().Result;
+                        }
+                        else if (verb.Equals("PUT", StringComparison.InvariantCultureIgnoreCase))
+                        {
+                            HttpResponseMessage postResponse = await client.PutAsJsonAsync<string>(url, request);
+                            response = postResponse.Content.ReadAsStringAsync().Result;
+                        }
+                    }
+                    return response;
                 }
-                else 
+                catch (Exception ex)
                 {
-                    this.logger.LogInformation("Verb: {0} Url: {1} Request: {2}", verb, url, request);
-                    if (verb.Equals("POST", StringComparison.InvariantCultureIgnoreCase))
-                    {
-                        HttpResponseMessage postResponse = await client.PostAsJsonAsync<string>(url, request);
-                        response = await postResponse.Content.ReadAsStringAsync();
-                    }
-                    else if (verb.Equals("PUT", StringComparison.InvariantCultureIgnoreCase))
-                    {
-                        HttpResponseMessage postResponse = await client.PutAsJsonAsync<string>(url, request);
-                        response = await postResponse.Content.ReadAsStringAsync();
-                    }
+                    throw new RPCServerException(RPC.RPCErrorCode.RPC_INVALID_REQUEST, ex.Message);
                 }
-
-                return response; 
             }
         }
     }
