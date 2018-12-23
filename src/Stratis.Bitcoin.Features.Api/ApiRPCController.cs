@@ -58,14 +58,15 @@ namespace Stratis.Bitcoin.Features.Api
                     {
                         // Convert request from base64 to JSON to pass to Api.
                         var requestJson = Encoding.UTF8.GetString(Convert.FromBase64String(request));
+                        StringContent content = new StringContent(requestJson, UTF8Encoding.UTF8, "application/json");
                         if (verb.Equals("POST", StringComparison.InvariantCultureIgnoreCase))
                         {
-                            HttpResponseMessage postResponse = await client.PostAsJsonAsync<string>(url, requestJson);
+                            HttpResponseMessage postResponse = await client.PostAsync(url, content);
                             response = postResponse.Content.ReadAsStringAsync().Result;
                         }
                         else if (verb.Equals("PUT", StringComparison.InvariantCultureIgnoreCase))
                         {
-                            HttpResponseMessage postResponse = await client.PutAsJsonAsync<string>(url, requestJson);
+                            HttpResponseMessage postResponse = await client.PutAsync(url, content);
                             response = postResponse.Content.ReadAsStringAsync().Result;
                         }
                     }
