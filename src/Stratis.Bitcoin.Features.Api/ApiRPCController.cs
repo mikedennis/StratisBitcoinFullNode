@@ -3,6 +3,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Stratis.Bitcoin.Controllers;
 
 namespace Stratis.Bitcoin.Features.Api
@@ -13,10 +14,12 @@ namespace Stratis.Bitcoin.Features.Api
     public class ApiRPCController : FeatureController
     {
         private ApiSettings apiSettings;
+        private ILogger logger;
 
-        public ApiRPCController(ApiSettings apiSettings, IFullNode fullNode) : base(fullNode: fullNode)
+        public ApiRPCController(ApiSettings apiSettings, IFullNode fullNode, ILoggerFactory loggerFactory) : base(fullNode: fullNode)
         {
             this.apiSettings = apiSettings;
+            this.logger = loggerFactory.CreateLogger(this.GetType().FullName);
         }
 
         /// <summary>
@@ -42,13 +45,16 @@ namespace Stratis.Bitcoin.Features.Api
 
                 var url = $"{this.apiSettings.ApiUri.AbsoluteUri}/api/{command}";
 
+
                 if (verb?.Equals("GET", StringComparison.InvariantCultureIgnoreCase) ?? true)
                 {
                     url += request;
+                    this.logger.LogInformation("Verb: {0} Url: {1} Request: {2}", verb, url, request);
                     response = await client.GetStringAsync(url);
                 }
                 else 
                 {
+                    this.logger.LogInformation("Verb: {0} Url: {1} Request: {2}", verb, url, request);
                     if (verb.Equals("POST", StringComparison.InvariantCultureIgnoreCase))
                     {
                         HttpResponseMessage postResponse = await client.PostAsJsonAsync<string>(url, request);
